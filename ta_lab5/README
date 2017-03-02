@@ -36,7 +36,7 @@ The majority of parameters you might want to tweak are in the launch/localize.la
 roslaunch ta_lab5 localize.launch --screen
 ```
 
-The "range_method" parameter determines which RangeLibc ray casting method to use. The default is pcddt because it is fast and has a low initialization time. The fastest option on the CPU is "glt" but it has a slow startup. The fastest version if you have can compile RangeLibc with CUDA enabled is "rmgpu". See this performance comparison chart:
+The "range_method" parameter determines which RangeLibc ray casting method to use. The default is cddt because it is fast and has a low initialization time. The fastest option on the CPU is "glt" but it has a slow startup. The fastest version if you have can compile RangeLibc with CUDA enabled is "rmgpu". See this performance comparison chart:
 
 ![Range Method Performance Comparison](./media/comparison.png)
 
