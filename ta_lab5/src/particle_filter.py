@@ -196,7 +196,7 @@ class ParticleFiler():
         self.INV_SQUASH_FACTOR = 1.0 / float(rospy.get_param("~squash_factor"))
         self.MAX_RANGE_METERS  = float(rospy.get_param("~max_range"))
         self.THETA_DISCRETIZATION = int(rospy.get_param("~theta_discretization"))
-        self.WHICH_RM          = rospy.get_param("~range_method", "cddt")
+        self.WHICH_RM          = rospy.get_param("~range_method", "cddt").lower()
         self.RANGELIB_VAR      = int(rospy.get_param("~rangelib_variant", "3"))
         self.SHOW_FINE_TIMING  = bool(rospy.get_param("~fine_timing", "0"))
         self.PUBLISH_ODOM      = bool(rospy.get_param("~publish_odom", "1"))
