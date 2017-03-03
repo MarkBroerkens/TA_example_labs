@@ -1,8 +1,8 @@
-# README
+# Staff solutions to 6.141 labs
 
-**[ta_lab3](/ta_lab3):** wall following
-**[ta_lab4](/ta_lab4):** visual servoing
-**[ta_lab5](/ta_lab5):** particle filter localization
+- **[ta_lab3](/ta_lab3):** wall following
+- **[ta_lab4](/ta_lab4):** visual servoing
+- **[ta_lab5](/ta_lab5):** particle filter localization
 
 Feel free to use these packages in future labs as long as you report which nodes you used were provided by the TAs.
  
