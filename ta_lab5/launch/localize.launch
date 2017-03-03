@@ -1,14 +1,43 @@
 <launch>
+	<!-- 
+
+	This launch file initializes particle filter localization.
+
+	arguments:
+		scan_topic - which ROS topic to listen for laser scan information
+		odom_topic - which ROS topic to listen for odometry information
+		max_particles - number of particles to maintain
+		angle_step    - laser scan ranges are downsampled by this factor
+		viz - whether or not to publish visualization topics.
+		      even if this is enabled, topics are not published unless there are subscribers
+		squash_factor - exponent used to "squash" the particle weights before normaliztation
+		                helps reduce problems associated with highly peaked prob. distributions
+
+	important parameters:
+		range_method: determines which RangeLibc algorithm to use. Options:
+			"bl": Bresenham's line. Slowest performance.
+			"rm": Ray Marching. Reasonably fast but suboptimal performance.
+			"rmgpu": GPU implementation of Ray Marching. Requires RangeLibc to be compiled WITH_CUDA=ON
+			"cddt": Compressed Directional Distance Transform. Compressed map representation. Fast query time.
+			"pcddt": Same as "cddt" but the data structure is pruned to remove unnecessary elements
+			"glt": Lookup table. Precomputes ray cast distances for a discretized state space. 
+			       Fast performance on the CPU but long initialization time.
+		max_range: maximum range of the laser scanner in meters. Measured ranges beyond max_range are clipped.
+		fine_timing: prints extra timing information, useful for profiling the particle filter
+		publish_odom: whether or not to publish inferred pose as an odometry message.
+		              publishes on /pf/pose/odom
+	 -->
 	<include file="$(find ta_lab5)/launch/map_server.launch"/>
 
 	<arg name="scan_topic" default="/scan"/>
 	<arg name="odometry_topic" default="/vesc/odom"/>
 	<!-- <arg name="odometry_topic" default="/odom"/> -->
-	<arg name="angle_step" default="16"/>
+	<arg name="angle_step" default="18"/>
 	<arg name="max_particles" default="4000"/>
 	<arg name="squash_factor" default="2.2"/>
 	<arg name="viz" default="1"/>
-	<node pkg="ta_lab5" type="particle_filter.py" name="Particle_filter">
+	
+	<node pkg="ta_lab5" type="particle_filter.py" name="Particle_filter" output="screen">
 		<param name="scan_topic" value="$(arg scan_topic)"/>
 		<param name="odometry_topic" value="$(arg odometry_topic)"/>
 		<!-- range data is downsampled by this factor -->

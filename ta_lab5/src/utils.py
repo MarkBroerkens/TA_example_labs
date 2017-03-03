@@ -12,7 +12,9 @@ import matplotlib.pyplot as plt
 import time
 
 class CircularArray(object):
-    """docstring for CircularArray"""
+    """ Simple implementation of a circular array.
+        You can append to it any number of times but only "size" items will be kept
+    """
     def __init__(self, size):
         self.arr = np.zeros(size)
         self.ind = 0
@@ -31,6 +33,14 @@ class CircularArray(object):
         return np.median(self.arr[:self.num_els])
 
 class Timer:
+    """ Simple helper class to compute the rate at which something is called.
+        
+        "smoothing" determines the size of the underlying circular array, which averages
+        out variations in call rate over time.
+
+        use timer.tick() to record an event
+        use timer.fps() to report the average event rate.
+    """
     def __init__(self, smoothing):
         self.arr = CircularArray(smoothing)
         self.last_time = time.time()

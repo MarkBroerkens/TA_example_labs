@@ -1,33 +1,43 @@
 #!/usr/bin/env python
 
+# packages
 import rospy
 import numpy as np
+import range_libc
+import time
+from threading import Lock
+import tf.transformations
+import tf
+import utils as Utils
 
+# messages
 from std_msgs.msg import String, Header, Float32MultiArray
 from sensor_msgs.msg import LaserScan
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point, Pose, PoseStamped, PoseArray, Quaternion, PolygonStamped,Polygon, Point32, PoseWithCovarianceStamped, PointStamped
 from nav_msgs.msg import Odometry
 from nav_msgs.srv import GetMap
-import tf.transformations
-import tf
+
+# visualization packages
 import matplotlib.pyplot as plt
-import range_libc
-import time
-import utils as Utils
-
-from threading import Lock
-
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
+'''
+These flags indicate several variants of the sensor model. Only one of them is used at a time.
+'''
 VAR_NO_EVAL_SENSOR_MODEL = 0
 VAR_CALC_RANGE_MANY_EVAL_SENSOR = 1
 VAR_REPEAT_ANGLES_EVAL_SENSOR = 2
 VAR_REPEAT_ANGLES_EVAL_SENSOR_ONE_SHOT = 3
 
+
 class ParticleFiler():
+    '''
+    This class implements Monte Carlo Localization based on odometry and a laser scanner.
+    '''
+
     def __init__(self):
         # parameters
         self.ANGLE_STEP        = int(rospy.get_param("~angle_step"))
@@ -87,9 +97,10 @@ class ParticleFiler():
         self.particle_pub  = rospy.Publisher("/pf/viz/particles", PoseArray, queue_size = 1)
         self.pub_fake_scan = rospy.Publisher("/pf/viz/fake_scan", LaserScan, queue_size = 1)
         self.rect_pub      = rospy.Publisher("/pf/viz/poly1", PolygonStamped, queue_size = 1)
-        self.odom_pub      = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
 
-        self.test_pub      = rospy.Publisher("/pf/pose/test", Marker, queue_size = 1)
+        if self.PUBLISH_ODOM:
+            self.odom_pub      = rospy.Publisher("/pf/pose/odom", Odometry, queue_size = 1)
+
         # these topics are for coordinate space things
         self.pub_tf = tf.TransformBroadcaster()
 
@@ -102,6 +113,10 @@ class ParticleFiler():
         print "Finished initializing, waiting on messages..."
 
     def get_omap(self):
+        '''
+        Fetch the occupancy grid map from the map_server instance, and initialize the correct
+        RangeLibc method. Also stores a matrix which indicates the permissible region of the map
+        '''
         # this way you could give it a different map server as a parameter
         map_service_name = rospy.get_param("~static_map", "static_map")
         print("getting map from service: ", map_service_name)
@@ -138,20 +153,11 @@ class ParticleFiler():
         self.map_initialized = True
 
     def publish_tf(self,pose, stamp=None):
-        """ Publish a tf from map to base_link. """
+        """ Publish a tf for the car. This tells ROS where the car is with respect to the map. """
         if stamp == None:
             stamp = rospy.Time.now()
 
-        """
-        Our particle filter provides estimates for the "laser" frame
-        since that is where our laser range estimates are measure from. Thus,
-        We want to publish a "map" -> "laser" transform.
-
-        However, the car's position is measured with respect to the "base_link"
-        frame (it is the root of the TF tree). Thus, we should actually define
-        a "map" -> "base_link" transform as to not break the TF tree.
-        """
-
+        # this may cause issues with the TF tree. If so, see the below code.
         self.pub_tf.sendTransform((pose[0],pose[1],0),tf.transformations.quaternion_from_euler(0, 0, pose[2]), 
                stamp , "/laser", "/map")
 
@@ -163,7 +169,18 @@ class ParticleFiler():
             odom.pose.pose.position.y = pose[1]
             odom.pose.pose.orientation = Utils.angle_to_quaternion(pose[2])
             self.odom_pub.publish(odom)
-        return
+        
+        return # below this line is disabled
+
+        """
+        Our particle filter provides estimates for the "laser" frame
+        since that is where our laser range estimates are measure from. Thus,
+        We want to publish a "map" -> "laser" transform.
+
+        However, the car's position is measured with respect to the "base_link"
+        frame (it is the root of the TF tree). Thus, we should actually define
+        a "map" -> "base_link" transform as to not break the TF tree.
+        """
 
         # Get map -> laser transform.
         map_laser_pos = np.array( (pose[0],pose[1],0) )
@@ -177,6 +194,9 @@ class ParticleFiler():
         self.pub_tf.sendTransform(map_laser_pos, map_laser_rotation, stamp , "/base_link", "/map")
 
     def visualize(self):
+        '''
+        Publish various visualization messages.
+        '''
         if not self.DO_VIZ:
             return
 
@@ -223,6 +243,9 @@ class ParticleFiler():
         self.pub_fake_scan.publish(ls)
 
     def lidarCB(self, msg):
+        '''
+        Initializes reused buffers, and stores the relevant laser scanner data for later use.
+        '''
         if not isinstance(self.laser_angles, np.ndarray):
             print "...Received first LiDAR message"
             self.laser_angles = np.linspace(msg.angle_min, msg.angle_max, len(msg.ranges))
@@ -235,9 +258,12 @@ class ParticleFiler():
         self.lidar_initialized = True
         # self.update()
 
-    # Odometry data is accumulated via dead reckoning, so it is very inaccurate
-    # this function determines relative shift in the coordinate space of the car
     def odomCB(self, msg):
+        '''
+        Store deltas between consecutive odometry messages in the coordinate space of the car.
+
+        Odometry data is accumulated via dead reckoning, so it is very inaccurate on its own.
+        '''
         position = np.array([
             msg.pose.pose.position.x,
             msg.pose.pose.position.y])
@@ -263,12 +289,18 @@ class ParticleFiler():
         self.update()
 
     def clicked_pose(self, msg):
+        '''
+        Receive pose messages from RViz and initialize the particle distribution in response.
+        '''
         if isinstance(msg, PointStamped):
             self.initialize_global()
         elif isinstance(msg, PoseWithCovarianceStamped):
             self.initialize_particles_pose(msg.pose.pose)
 
     def initialize_particles_pose(self, pose):
+        '''
+        Initialize particles in the general region of the provided pose.
+        '''
         print "SETTING POSE"
         print pose
         self.state_lock.acquire()
@@ -279,6 +311,9 @@ class ParticleFiler():
         self.state_lock.release()
 
     def initialize_global(self):
+        '''
+        Spread the particle distribution over the permissible region of the state space.
+        '''
         print "GLOBAL INITIALIZATION"
         # randomize over grid coordinate space
         self.state_lock.acquire()
@@ -296,6 +331,13 @@ class ParticleFiler():
         self.state_lock.release()
 
     def precompute_sensor_model(self):
+        '''
+        Generate and store a table which represents the sensor model. For each discrete computed
+        range value, this provides the probability of measuring any (discrete) range.
+
+        This table is indexed by the sensor model at runtime by discretizing the measurements
+        and computed ranges from RangeLibc.
+        '''
         print "Precomputing sensor model"
         # sensor model constants
         z_short = 0.01
@@ -309,16 +351,16 @@ class ParticleFiler():
         self.sensor_model_table = np.zeros((table_width,table_width))
 
         t = time.time()
-        # d is the computed range
+        # d is the computed range from RangeLibc
         for d in xrange(table_width):
             norm = 0.0
             sum_unkown = 0.0
-            # r is the observed range
+            # r is the observed range from the lidar unit
             for r in xrange(table_width):
                 prob = 0.0
                 z = float(r-d)
                 # reflects from the intended object
-                prob += z_hit * np.exp(-(z*z)/(2.0*sigma_hit*sigma_hit)) / ( sigma_hit * np.sqrt(2.0*np.pi))
+                prob += z_hit * np.exp(-(z*z)/(2.0*sigma_hit*sigma_hit)) / (sigma_hit * np.sqrt(2.0*np.pi))
 
                 # observed range is less than the predicted range - short reading
                 if r < d:
@@ -336,13 +378,13 @@ class ParticleFiler():
                 self.sensor_model_table[int(r),int(d)] = prob
 
             # normalize
-            self.sensor_model_table[:,int(d)] *= (1.0 / norm)
+            self.sensor_model_table[:,int(d)] /= norm
 
         # upload the sensor model to RangeLib for ultra fast resolution
         if self.RANGELIB_VAR > 0:
             self.range_method.set_sensor_model(self.sensor_model_table)
 
-        # code to generate visualizations of the sensor model
+        # code to generate various visualizations of the sensor model
         if False:
             # visualize the sensor model
             fig = plt.figure()
@@ -374,11 +416,19 @@ class ParticleFiler():
             plt.ylabel("P(Measured Distance | Ground Truth Distance = 140px)")
             plt.show()
 
-    # vectorized motion model. Computing the motion model over all particles is thousands of times
-    # faster than doing it for each particle individually due to vectorization and reduction in
-    # function call overhead
-    # TODO this could be better, but it works for now
     def motion_model(self, proposal_dist, action):
+        '''
+        The motion model applies the odometry to the particle distribution. Since there the odometry
+        data is inaccurate, the motion model mixes in gaussian noise to spread out the distribution.
+
+        Vectorized motion model. Computing the motion model over all particles is thousands of times
+        faster than doing it for each particle individually due to vectorization and reduction in
+        function call overhead
+        
+        TODO this could be better, but it works for now
+            - fixed random noise is not very realistic
+            - ackermann model provides bad estimates at high speed
+        '''
         # rotate the action into the coordinate space of each particle
         # t1 = time.time()
         cosines = np.cos(proposal_dist[:,2])
@@ -394,27 +444,18 @@ class ParticleFiler():
         proposal_dist[:,1] += np.random.normal(loc=0.0,scale=add_rand*0.5,size=self.MAX_PARTICLES)
         proposal_dist[:,2] += np.random.normal(loc=0.0,scale=0.25,size=self.MAX_PARTICLES)
 
-        # equivalently, but MUCH more slowly
-        # t2 = time.time()
-        # for i in xrange(self.MAX_PARTICLES):
-        #     delta_pos = np.array([action[0:2]]).transpose()
-        #     particle_angle = proposal_dist[i,2]
-        #     rot = Utils.rotation_matrix(particle_angle)
-        #     local_delta = rot*delta_pos
-        #     if i == 0:
-        #         # print "rot", rot[0,:], rot[0,:] * delta_pos
-        #         # print delta_pos.shape
-        #         print local_delta.transpose()
-        #     proposal_dist[i,0] += local_delta[0]
-        #     proposal_dist[i,1] += local_delta[1]
-        #     proposal_dist[i,2] += action[2]
-
-        # t3 = time.time()
-        # print "first", t2-t1
-        # print "second:", t3-t2
-
-    # it would be better to offload this computation to the GPU, but hey this works
     def sensor_model(self, proposal_dist, obs, weights):
+        '''
+        This function computes a probablistic weight for each particle in the proposal distribution.
+        These weights represent how probable each proposed (x,y,theta) pose is given the measured
+        ranges from the lidar scanner.
+
+        There are 4 different variants using various features of RangeLibc for demonstration purposes.
+        - VAR_REPEAT_ANGLES_EVAL_SENSOR is the most stable, and is very fast.
+        - VAR_NO_EVAL_SENSOR_MODEL directly indexes the precomputed sensor model. This is slow
+                                   but it demonstrates what self.range_method.eval_sensor_model does
+        '''
+        
         num_rays = self.downsampled_angles.shape[0]
         # only allocate buffers once to avoid slowness
         if self.first_sensor_update:
@@ -422,8 +463,7 @@ class ParticleFiler():
                 self.queries = np.zeros((num_rays*self.MAX_PARTICLES,3), dtype=np.float32)
             else:
                 self.queries = np.zeros((self.MAX_PARTICLES,3), dtype=np.float32)
-            # self.queries1 = np.zeros((num_rays*self.MAX_PARTICLES,3), dtype=np.float32)
-            # self.queries2 = np.zeros((self.MAX_PARTICLES,3), dtype=np.float32)
+
             self.ranges = np.zeros(num_rays*self.MAX_PARTICLES, dtype=np.float32)
             self.tiled_angles = np.tile(self.downsampled_angles, self.MAX_PARTICLES)
             self.first_sensor_update = False
@@ -431,7 +471,7 @@ class ParticleFiler():
         if self.RANGELIB_VAR == VAR_REPEAT_ANGLES_EVAL_SENSOR_ONE_SHOT:
             self.queries[:,:] = proposal_dist[:,:]
             self.range_method.calc_range_repeat_angles_eval_sensor_model(self.queries, self.downsampled_angles, obs, self.weights)
-            self.weights = np.power(self.weights, self.INV_SQUASH_FACTOR)
+            np.power(self.weights, self.INV_SQUASH_FACTOR, self.weights)
         elif self.RANGELIB_VAR == VAR_REPEAT_ANGLES_EVAL_SENSOR:
             if self.SHOW_FINE_TIMING:
                 t_start = time.time()
@@ -446,17 +486,14 @@ class ParticleFiler():
             self.range_method.eval_sensor_model(obs, self.ranges, self.weights, num_rays, self.MAX_PARTICLES)
             if self.SHOW_FINE_TIMING:
                 t_eval = time.time()
-            self.weights = np.power(self.weights, self.INV_SQUASH_FACTOR)
+            np.power(self.weights, self.INV_SQUASH_FACTOR, self.weights)
             if self.SHOW_FINE_TIMING:
                 t_squash = time.time()
                 t_total = (t_squash - t_start) / 100.0
 
             if self.SHOW_FINE_TIMING and self.iters % 10 == 0:
-                # print "propose: ", t_propose - t, "motion:", t_motion - t_propose, "sensor:", t_sensor - t_motion, "norm:", t_norm - t_sensor
                 print "sensor_model: init: ", np.round((t_init-t_start)/t_total, 2), "range:", np.round((t_range-t_init)/t_total, 2), \
                       "eval:", np.round((t_eval-t_range)/t_total, 2), "squash:", np.round((t_squash-t_eval)/t_total, 2)
-
-
         elif self.RANGELIB_VAR == VAR_CALC_RANGE_MANY_EVAL_SENSOR:
             # this version demonstrates what this would look like with coordinate space conversion pushed to rangelib
             # this part is inefficient since it requires a lot of effort to construct this redundant array
@@ -469,7 +506,7 @@ class ParticleFiler():
 
             # evaluate the sensor model on the GPU
             self.range_method.eval_sensor_model(obs, self.ranges, self.weights, num_rays, self.MAX_PARTICLES)
-            self.weights = np.power(self.weights, self.INV_SQUASH_FACTOR)
+            np.power(self.weights, self.INV_SQUASH_FACTOR, self.weights)
         elif self.RANGELIB_VAR == VAR_NO_EVAL_SENSOR_MODEL:
             # this version directly uses the sensor model in Python, at a significant computational cost
             self.queries[:,0] = np.repeat(proposal_dist[:,0], num_rays)
@@ -497,8 +534,16 @@ class ParticleFiler():
         else:
             print "PLEASE SET rangelib_variant PARAM to 0-3"
 
-    # this function is on the critical path
     def MCL(self, a, o):
+        '''
+        Performs one step of Monte Carlo Localization.
+            1. resample particle distribution to form the proposal distribution
+            2. apply the motion model
+            3. apply the sensor model
+            4. normalize particle weights
+
+        This is in the critical path of code execution, so it is optimized for speed.
+        '''
         if self.SHOW_FINE_TIMING:
             t = time.time()
         # draw the proposal distribution from the old particles
@@ -518,24 +563,28 @@ class ParticleFiler():
             t_sensor = time.time()
 
         # normalize importance weights
-        self.weights *= 1.0 / np.sum(self.weights)
+        self.weights /= np.sum(self.weights)
         if self.SHOW_FINE_TIMING:
             t_norm = time.time()
             t_total = (t_norm - t)/100.0
 
         if self.SHOW_FINE_TIMING and self.iters % 10 == 0:
-            # print "propose: ", t_propose - t, "motion:", t_motion - t_propose, "sensor:", t_sensor - t_motion, "norm:", t_norm - t_sensor
             print "MCL: propose: ", np.round((t_propose-t)/t_total, 2), "motion:", np.round((t_motion-t_propose)/t_total, 2), \
                   "sensor:", np.round((t_sensor-t_motion)/t_total, 2), "norm:", np.round((t_norm-t_sensor)/t_total, 2)
 
         # save the particles
         self.particles = proposal_distribution
-
-    # returns the expected value of the pose given the particle distribution
+    
     def expected_pose(self):
+        # returns the expected value of the pose given the particle distribution
         return np.dot(self.particles.transpose(), self.weights)
 
     def update(self):
+        '''
+        Apply the MCL function to update particle filter state. 
+
+        Ensures the state is correctly initialized, and acquires the state lock before proceeding.
+        '''
         if self.lidar_initialized and self.odom_initialized and self.map_initialized:
             if self.state_lock.locked():
                 print "Concurrency error avoided"
@@ -543,8 +592,7 @@ class ParticleFiler():
                 self.state_lock.acquire()
                 self.timer.tick()
                 self.iters += 1
-                # print "Update"
-                # lock
+
                 t1 = time.time()
                 observation = np.copy(self.downsampled_ranges).astype(np.float32)
                 action = np.copy(self.odometry_data)
@@ -582,8 +630,9 @@ def load_params_from_yaml(fp):
             print "param:", param, ":", yaml_data[param]
             rospy.set_param("~"+param, yaml_data[param])
 
+# this function can be used to generate flame graphs easily
 def make_flamegraph(filterx=None):
-    import flamegraph
+    import flamegraph, os
     perf_log_path = os.path.join(os.path.dirname(__file__), "../tmp/perf.log")
     flamegraph.start_profile_thread(fd=open(perf_log_path, "w"),
                                     filter=filterx,
