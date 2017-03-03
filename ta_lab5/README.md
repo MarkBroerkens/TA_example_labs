@@ -36,6 +36,8 @@ The majority of parameters you might want to tweak are in the launch/localize.la
 roslaunch ta_lab5 localize.launch
 ```
 
+Once the particle filter is running, you can visualize the map and other particle filter visualization message in RViz. Use the "2D Pose Estimate" tool from the RViz toolbar to initialize the particle locations.
+
 See [launch/localize.launch](/ta_lab5/launch/localize.launch) for docs on available parameters and arguments.
 
 The "range_method" parameter determines which RangeLibc ray casting method to use. The default is cddt because it is fast and has a low initialization time. The fastest option on the CPU is "glt" but it has a slow startup. The fastest version if you have can compile RangeLibc with CUDA enabled is "rmgpu". See this performance comparison chart:
