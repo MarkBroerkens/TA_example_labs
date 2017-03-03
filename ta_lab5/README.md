@@ -33,8 +33,10 @@ sudo WITH_CUDA=ON python setup.py install
 The majority of parameters you might want to tweak are in the launch/localize.launch file. You may have to modify the "odometry_topic" parameter to match your environment.
 
 ```
-roslaunch ta_lab5 localize.launch --screen
+roslaunch ta_lab5 localize.launch
 ```
+
+See [launch/localize.launch](/launch/localize.launch) for docs on available parameters and arguments.
 
 The "range_method" parameter determines which RangeLibc ray casting method to use. The default is cddt because it is fast and has a low initialization time. The fastest option on the CPU is "glt" but it has a slow startup. The fastest version if you have can compile RangeLibc with CUDA enabled is "rmgpu". See this performance comparison chart:
 
@@ -42,6 +44,8 @@ The "range_method" parameter determines which RangeLibc ray casting method to us
 
 # Docs
 
-This code is the staff solution to the lab guide found in the /docs folder. A mathematical derivation of MCL is available in that guide.
+This code is the staff solution to the lab guide found in the [/docs](/docs) folder. A mathematical derivation of MCL is available in that guide.
 
-There is also documentation on RangeLibc in the /docs folder.
+There is also documentation on RangeLibc in the [/docs](/docs) folder.
+
+The code itself also contains comments describing purpose of each method.

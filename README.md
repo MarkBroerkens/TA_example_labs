@@ -1,5 +1,9 @@
 # README
 
+**ta_lab3:** wall following
+**ta_lab4:** visual servoing
+**ta_lab5:** particle filter localization
+
 Please feel free to use these packages in future labs as long as you report which nodes you used were provided by the TAs.
  
 For future labs, TA examples will be released to this repo using wstool after the due date of the labs.
