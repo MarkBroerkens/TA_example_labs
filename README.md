@@ -1,8 +1,9 @@
 # Staff solutions to 6.141 labs
 
-- **[ta_lab3](/ta_lab3):** wall following
-- **[ta_lab4](/ta_lab4):** visual servoing
-- **[ta_lab5](/ta_lab5):** particle filter localization
+- **[ta_lab3](/ta_lab3):** Wall following
+- **[ta_lab4](/ta_lab4):** Visual servoing
+- **[ta_lab5](/ta_lab5):** Particle filter localization
+- **[ta_lab6](/ta_lab6):** Pure Pursuit + A* Trajectory Planning
 
 Feel free to use these packages in future labs as long as you report which nodes you used were provided by the TAs.
  
@@ -20,6 +21,8 @@ rosdep install -r --from-paths src --rosdistro kinetic -y
 # build workspace
 catkin_make
 ```
+
+See the readme for each package for additional installation and/or usage instructions.
 
 ## Using the example packages
 ```bash
