@@ -20,10 +20,11 @@ TARGET_DISTANCE = 1.0
 MEDIAN_FILTER_SIZE=141
 KP = 0.4 # distance term
 KD = 0.3  # angle term
+# KD = 0.5  # angle term
 PUBLISH_LINE = True
 HISTORY_SIZE = 5 # Size of the circular array for smoothing steering commands
 PUBLISH_RATE = 20.0 # number of control commands to publish per second
-SPEED = 2.0
+SPEED = 1.0
 
 EPSILON = 0.000001
 
@@ -285,5 +286,5 @@ class WallFollow():
 
 if __name__=="__main__":
     rospy.init_node("wall_follow")
-    WallFollow(LEFT)
+    WallFollow(RIGHT)
     rospy.spin()
