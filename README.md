@@ -7,8 +7,13 @@ For future labs, TA examples will be released to this repo using wstool after th
 ## Installation Steps
 ```bash
 cd ~/racecar-ws/
+# Add upstream TA repo
 wstool set src/ta_examples_public --git "https://github.com/mit-racecar/TA_example_labs.git"
+# Pull in new code from TA repo
 wstool update
+# Install ros deps
+rosdep install -r --from-paths src --rosdistro kinetic -y
+# build workspace
 catkin_make
 ```
 
