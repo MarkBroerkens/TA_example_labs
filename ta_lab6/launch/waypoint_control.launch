@@ -7,10 +7,7 @@
 		<param name="publish" value="1"/>
 		<param name="trajectory_topic" value="/trajectory/current"/>
 
-		<!-- use this one on the simulator -->
-		<param name="odom_topic" value="/odom"/>
-		<!-- use this one on the car -->
-		<!-- <param name="odom_topic" value="/pf/pose/odom"/> -->
+		<param name="odom_topic" value="/pf/pose/odom"/>
 		
 		<param name="show_exploration_buffer" value="1"/>
 		<!-- These params are for the circle search -->
