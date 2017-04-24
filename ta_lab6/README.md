@@ -33,8 +33,13 @@ rosdep install -r --from-paths src --ignore-src --rosdistro kinetic -y
 You have to run teleoperation, localization, and pure pursuit trajectory following nodes.
 
 ```
+# For the car
 roslaunch racecar teleop.launch
 roslaunch ta_lab5 localize.launch
+roslaunch ta_lab6 follow_trajectory.launch
+
+# For simulation
+roslaunch racecar_gazebo racecar_tunnel.launch
 roslaunch ta_lab6 follow_trajectory.launch
 ```
 
@@ -44,22 +49,24 @@ Once those are running, you can use the trajectory loader node to initialize pur
 roslaunch ta_lab6 trajectory_loader.launch
 ```
 
-**Note: the code is currently configured for usage in simulator. You will have to change the "odom_topic" parameters in the follow_trajectory launch file to point to localization based pose estimation before this will work on the car.**
-
 ### Pure Pursuit + Path planning: Waypoint based control
 
 You have to run teleoperation, localization, pure pursuit trajectory following, and path planning nodes.
 
 ```
+# For the car
 roslaunch racecar teleop.launch
 roslaunch ta_lab5 localize.launch
+roslaunch ta_lab6 follow_trajectory.launch
+roslaunch ta_lab6 waypoint_control.launch
+
+# For simulation
+roslaunch racecar_gazebo racecar_tunnel.launch
 roslaunch ta_lab6 follow_trajectory.launch
 roslaunch ta_lab6 waypoint_control.launch
 ```
 
 Once the nodes are running, you should initialize the particle filter with the 2D Pose Estimate RViz function. Then, you can specify a goal point with the 2D Nav Goal function. First it will plan a rough trajectory, then refine that trajectory, and then attempt to follow the trajectory.
-
-**Note: the code is currently configured for usage in simulator. You will have to change the "odom_topic" parameters in the follow_trajectory and waypoint_control launch files to point to localization based pose estimation before this will work on the car.**
 
 ## Organization
 
