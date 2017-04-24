@@ -6,8 +6,8 @@
 	<arg name="odom_topic" default="/pf/pose/odom"/>
 	
 	<node pkg="ta_lab6" type="pure_pursuit.py" name="Trajectory_follower">
-		<!-- <param name="odom_topic" value="$(arg odom_topic)"/> -->
-		<param name="odom_topic" value="/odom"/>
+		<param name="odom_topic" value="$(arg odom_topic)"/>
+		
 		<param name="trajectory_topic" value="/trajectory/current"/>
 		<param name="lookahead" value="$(arg lookahead)"/>
 		<!-- if the car is between lookahead and max_reacquire meters, it will attempt to
