@@ -5,7 +5,7 @@
 	<!-- use this one on the car -->
 	<!-- <arg name="odom_topic" default="/pf/pose/odom"/> -->
 	<!-- use this one on the simulator -->
-	<arg name="odom_topic" default="/odom"/>
+	<arg name="odom_topic" default="/vesc/odom"/>
 	<node pkg="ta_lab6" type="pure_pursuit.py" name="Trajectory_follower">
 		<!-- <param name="odom_topic" value="$(arg odom_topic)"/> -->
 		<param name="odom_topic" value="/odom"/>
