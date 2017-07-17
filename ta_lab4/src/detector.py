@@ -7,6 +7,7 @@ box over the blob and publishes this modified image
 to the ~detection_image topic.
 """
 DEBUG = True # publish images
+DEMO = False
 import cv2
 import numpy as np
 import rospy
@@ -33,6 +34,9 @@ class Detector:
     COLOR = [np.array(x, np.uint8) for x in [\
          [  6 ,249 ,214], [ 11, 255 ,253]        
         ] ]
+    COLOR = [ np.array(x, np.uint8) for x in [\
+            [1, 255, 172], [3, 255, 255]
+            ]]
     # number of blobs to detect
     MAX_DETECTIONS = 1
 
@@ -48,14 +52,13 @@ class Detector:
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         
         # threshold the image to remove all colors that are not yellpw
-        frame_threshed = cv2.inRange(hsv_img, self.COLOR[0], self.COLOR[1])
-        ret,thresh = cv2.threshold(frame_threshed, self.COLOR[0][0], 255, 0)
-         
+        thresh = cv2.inRange(hsv_img, self.COLOR[0], self.COLOR[1])
+
         # create the list of filtered contours to return
         filtered_contours = []
 
         # find all contours in the thresholded image
-        img, contours, hierarchy = cv2.findContours(\
+        img_mod, contours, hierarchy = cv2.findContours(\
                 thresh,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
         
         # sort all contours by area, largest to smallest
@@ -72,6 +75,17 @@ class Detector:
             
             # add this contour to the list
             filtered_contours.append( (cnt, box) )
+        
+        if DEMO:
+            cv2.imshow('hsv_image', hsv_img)
+            cv2.imshow('in_range', thresh)
+            mask = cv2.bitwise_and(img, img, mask= thresh)
+            cv2.imshow('mask', mask)
+            cnts = img.copy()
+            cv2.drawContours(cnts, contours, -1, (0,255,0), 3)
+            cv2.imshow('contours', cnts)
+            cv2.waitKey(1)
+        
         return filtered_contours
 
 
@@ -110,7 +124,7 @@ class StaticObjectDetectorNode:
     def __init__(self):
         
         self.detector = Detector()
-        self.sub_image = rospy.Subscriber("/zed/rgb/image_rect_color", Image, self.processImage, queue_size=1)
+        self.sub_image = rospy.Subscriber("/camera/rgb/image_rect_color", Image, self.processImage, queue_size=1)
         self.pub_image = rospy.Publisher("detection_image", Image, queue_size=1)
         self.bridge = CvBridge()
 
@@ -164,7 +178,15 @@ class StaticObjectDetectorNode:
 if __name__=="__main__":
     # initalize the ros node
     rospy.init_node('object_detector_node')
-    
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument('-d', '--demo', action='store_true')
+    argv =[x for x in sys.argv if "__" not in x]
+
+    args = parser.parse_args(argv[1:])
+    global DEMO
+    DEMO = args.demo
+
     # create the object detector
     node = StaticObjectDetectorNode()
     
